@@ -13,6 +13,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Form
 from fastapi.responses import JSONResponse
 
+#関数のインポート
+## TASさんファイルをインポート
+#from slack_client import _blocks_for_options, send_candidates, send_final_decision, slack_interactivity
+
 # ======================================
 # Streamlit UI Part
 # ======================================
@@ -45,7 +49,7 @@ with tab1:
             date_val = st.date_input("日付", datetime.date.today() + datetime.timedelta(days=i), key=f"date_{i}")
         with col2:
             time_val = st.time_input("時刻", datetime.time(10, 0), key=f"time_{i}", step=datetime.timedelta(minutes=30))
-        candidates.append(datetime.datetime.combine(date_val, time_val).strftime('%Y/%m/%d(%a) %H:%M'))
+        candidates.append((i, datetime.datetime.combine(date_val, time_val).strftime('%Y/%m/%d(%a) %H:%M')))
     
     col_add, col_del = st.columns(2)
     with col_add:
@@ -58,9 +62,57 @@ with tab1:
                 st.session_state.num_candidates -= 1
                 st.rerun()
 
-    st.button("この内容でSlackに投票を投稿", type="primary")
+    if st.button("この内容でSlackに投票を投稿", type="primary"):
+        try:
+            #send_candidates関数の呼び出し
+            send_candidates(
+                text=title,
+                options=candidates,
+                channel=channel_id if channel_id else None
+            )
+            st.success("✅ Slackに投票を投稿しました！")
+        except RuntimeError as e:
+            # Slackの認証情報が設定されていない場合のエラーをキャッチ
+            st.error(f"❌ エラーが発生しました: {e}")
+        except Exception as e:
+            st.error(f"❌ 予期せぬエラーが発生しました: {e}")
 
 #2つ目のタブの中身の設定
 with tab2:
+    st.header("投票結果の確認")
     meeting_id = st.text_input("会議URL")
+
+    st.subheader("現在の投票状況（ダミーデータ）")
+
+    dummy_results = {
+        "2025/09/22(月) 10:00": {
+            "参加": 3,
+            "不参加": 1
+        },
+        "2025/09/23(火) 15:30": {
+            "参加": 5,
+            "不参加": 0
+        },
+        "2025/09/24(水) 11:00": {
+            "参加": 2,
+            "不参加": 3
+        }
+    }
+    
+    df = pd.DataFrame.from_dict(dummy_results, orient='index')
+    df.index.name = "候補日時"
+    
+    # 最もシンプルな形でst.dataframeを表示
+    st.dataframe(df)
+
+    st.subheader("確定候補の選択")
+    final_candidate = st.radio(
+        "最終確定する日程を選択してください。",
+        options=list(dummy_results.keys()),
+        index=None
+    )
+    
+    if final_candidate:
+        st.info(f"確定日程: **{final_candidate}**")
+
     st.button("この内容でSlackに確定を通知", type="primary")
