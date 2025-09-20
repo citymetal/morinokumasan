@@ -102,7 +102,6 @@ with tab2:
     df = pd.DataFrame.from_dict(dummy_results, orient='index')
     df.index.name = "候補日時"
     
-    # 最もシンプルな形でst.dataframeを表示
     st.dataframe(df)
 
     st.subheader("確定候補の選択")
