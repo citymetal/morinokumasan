@@ -130,8 +130,8 @@ with tab2:
         st.info(f"確定日程: **{final_candidate}**")
 
     if st.button("この内容でSlackに確定を通知", type="primary"):
-    try:
-        slack_client.send_final_decision(f"📣 会議日程が決定しました：*{final_candidate}* です！", channel=channel_id)
-        st.success("Slackに確定日程を通知しました！")
-    except Exception as e:
-        st.error(f"Slack通知でエラー: {e}")
+        try:
+            slack_client.send_final_decision(f"📣 会議日程が決定しました：*{final_candidate}* です！", channel=channel_id)
+            st.success("Slackに確定日程を通知しました！")
+        except Exception as e:
+            st.error(f"Slack通知でエラー: {e}")
