@@ -4,12 +4,13 @@ import hmac
 import os
 import time
 import urllib.parse
+import json
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
 
-import db
+import db  # ← db.py をそのまま利用
 
 load_dotenv()
 
@@ -22,7 +23,7 @@ def verify_slack_request(timestamp: str, signature: str, body: bytes) -> None:
     if not SIGNING_SECRET:
         raise HTTPException(status_code=500, detail="Signing secret 未設定")
 
-    # リプレイ攻撃対策（5分）
+    # リプレイ攻撃対策（±5分）
     try:
         ts = int(timestamp)
     except Exception:
@@ -44,28 +45,41 @@ def verify_slack_request(timestamp: str, signature: str, body: bytes) -> None:
 
 @app.post("/slack/webhook")
 async def slack_webhook(request: Request):
-    # Slackは application/x-www-form-urlencoded で payload=... を送る
+    """
+    SlackのインタラクティブなBlock Actionsを受け取り、
+    例: action.value = "12:ok" / "12:ng" を votes にUPSERTする。
+    """
     raw_body = await request.body()
+
+    # 署名検証
     signature = request.headers.get("X-Slack-Signature", "")
     timestamp = request.headers.get("X-Slack-Request-Timestamp", "0")
     verify_slack_request(timestamp, signature, raw_body)
 
+    # Slackは application/x-www-form-urlencoded で payload=... を送る
     form = urllib.parse.parse_qs(raw_body.decode("utf-8"))
     payload_json = form.get("payload", [None])[0]
     if not payload_json:
         raise HTTPException(status_code=400, detail="No payload")
 
-    import json
     payload = json.loads(payload_json)
 
-    # URL verification（省略）や block_actions のみ想定
+    # URL verification などは素通し。ここでは block_actions のみ想定
     if payload.get("type") != "block_actions":
         return PlainTextResponse("ok")
 
-    user_id = payload.get("user", {}).get("id")
+    # ユーザー情報（user_id と user_nameの両方を確保）
+    user = payload.get("user", {}) or {}
+    user_id = user.get("id")
+    # payloadの仕様差異に備えて複数キーをフォールバック
+    user_name = user.get("username") or user.get("name") or user_id
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Invalid payload: no user")
+
+    # 最初のアクションだけを見る（必要に応じて複数対応可）
     actions = payload.get("actions", [])
-    if not user_id or not actions:
-        raise HTTPException(status_code=400, detail="Invalid payload")
+    if not actions:
+        raise HTTPException(status_code=400, detail="Invalid payload: no actions")
 
     value = actions[0].get("value", "")  # 例: "12:ok" or "12:ng"
     try:
@@ -75,10 +89,11 @@ async def slack_webhook(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid action value")
 
-    # DBへ保存（UPSERT）
-    db.save_vote(option_id=option_id, user=user_id, status=status)
+    # --- DBへ保存（db.pyのAPIに合わせる）---
+    # db.pyの関数は record_vote(option_id, user_id, user_name, status)
+    db.record_vote(option_id=option_id, user_id=user_id, user_name=user_name, status=status)
 
-    # Slack には 200 を即返す（3秒以内）
+    # Slackには素早く200を返す（3秒以内）
     return PlainTextResponse("ok")
 
 
