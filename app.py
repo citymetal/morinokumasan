@@ -4,6 +4,7 @@ import pandas as pd
 import json
 import os
 import datetime
+import sqlite3
 
 from typing import List, Tuple, Optional
 from slack_sdk import WebClient
@@ -14,12 +15,18 @@ from fastapi import FastAPI, Form
 from fastapi.responses import JSONResponse
 
 #関数のインポート
-## TASさんファイルをインポート
-#from slack_client import _blocks_for_options, send_candidates, send_final_decision, slack_interactivity
+## がうらさんファイルのインポート
+import db
+
+# ======================================
+# DB Part
+# ======================================
+DB_NAME = "schedule.db"
 
 # ======================================
 # Streamlit UI Part
 # ======================================
+db.init_db()
 st.title("📅 Slack連携 日程調整アプリ")
 tab1, tab2 = st.tabs(["投票の作成", "結果の確認・確定"])
 
@@ -64,18 +71,22 @@ with tab1:
 
     if st.button("この内容でSlackに投票を投稿", type="primary"):
         try:
-            #send_candidates関数の呼び出し
+            # DBに会議を登録
+            meeting_id = db.create_meeting(title, channel_id)
+
+            # 各候補をDBに保存
+            for _, cand_text in candidates:
+                db.add_option(cand_text, meeting_id)
+
+            # Slack送信
             send_candidates(
                 text=title,
                 options=candidates,
                 channel=channel_id if channel_id else None
             )
-            st.success("✅ Slackに投票を投稿しました！")
-        except RuntimeError as e:
-            # Slackの認証情報が設定されていない場合のエラーをキャッチ
-            st.error(f"❌ エラーが発生しました: {e}")
+            st.success(f"✅ Slackに投票を投稿しました！（meeting_id={meeting_id}）")
         except Exception as e:
-            st.error(f"❌ 予期せぬエラーが発生しました: {e}")
+            st.error(f"❌ エラーが発生しました: {e}")
 
 #2つ目のタブの中身の設定
 with tab2:
