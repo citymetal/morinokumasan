@@ -78,6 +78,12 @@ with tab1:
             for _, cand_text in candidates:
                 db.add_option(cand_text, meeting_id)
 
+             # 保存された候補を確認表示
+            st.subheader("保存された候補一覧（DB確認用）")
+            saved_options = db.list_options(meeting_id)
+            for oid, text in saved_options:
+                st.write(f"- ID={oid}, 候補日時={text}")
+
             # Slack送信
             send_candidates(
                 text=title,
