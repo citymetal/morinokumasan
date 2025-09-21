@@ -7,14 +7,13 @@ import datetime
 import sqlite3
 
 from typing import List, Tuple, Optional
-from slack_sdk import WebClient
-from slack_sdk.webhook import WebhookClient
-from slack_sdk.errors import SlackApiError
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form
 from fastapi.responses import JSONResponse
 
-#関数のインポート
+## TASさんファイルのインポート
+import slack_client
+
 ## がうらさんファイルのインポート
 import db
 
@@ -85,9 +84,9 @@ with tab1:
                 st.write(f"- ID={oid}, 候補日時={text}")
 
             # Slack送信
-            send_candidates(
+            slack_client.send_candidates(
                 text=title,
-                options=candidates,
+                options=db.list_options(meeting_id),  # DBに保存した候補を渡すのがベター
                 channel=channel_id if channel_id else None
             )
             st.success(f"✅ Slackに投票を投稿しました！（meeting_id={meeting_id}）")
@@ -130,4 +129,9 @@ with tab2:
     if final_candidate:
         st.info(f"確定日程: **{final_candidate}**")
 
-    st.button("この内容でSlackに確定を通知", type="primary")
+    if st.button("この内容でSlackに確定を通知", type="primary"):
+    try:
+        slack_client.send_final_decision(f"📣 会議日程が決定しました：*{final_candidate}* です！", channel=channel_id)
+        st.success("Slackに確定日程を通知しました！")
+    except Exception as e:
+        st.error(f"Slack通知でエラー: {e}")
