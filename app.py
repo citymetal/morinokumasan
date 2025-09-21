@@ -96,42 +96,50 @@ with tab1:
 #2つ目のタブの中身の設定
 with tab2:
     st.header("投票結果の確認")
-    meeting_id = st.text_input("会議URL")
+    meeting_id = st.text_input("会議URL（または会議ID）")
 
-    st.subheader("現在の投票状況（ダミーデータ）")
+    st.subheader("現在の投票状況")
 
-    dummy_results = {
-        "2025/09/22(月) 10:00": {
-            "参加": 3,
-            "不参加": 1
-        },
-        "2025/09/23(火) 15:30": {
-            "参加": 5,
-            "不参加": 0
-        },
-        "2025/09/24(水) 11:00": {
-            "参加": 2,
-            "不参加": 3
-        }
-    }
-    
-    df = pd.DataFrame.from_dict(dummy_results, orient='index')
-    df.index.name = "候補日時"
-    st.dataframe(df)
-
-    st.subheader("確定候補の選択")
-    final_candidate = st.radio(
-        "最終確定する日程を選択してください。",
-        options=list(dummy_results.keys()),
-        index=None
-    )
-    
-    if final_candidate:
-        st.info(f"確定日程: **{final_candidate}**")
-
-    if st.button("この内容でSlackに確定を通知", type="primary"):
+    if meeting_id:
         try:
-            slack_client.send_final_decision(f"📣 会議日程が決定しました：*{final_candidate}* です！", channel=channel_id)
-            st.success("Slackに確定日程を通知しました！")
+            results = db.tally_votes(int(meeting_id))  # 集計結果を取得
+            if results:
+                df = pd.DataFrame(
+                    [(text, ok, ng) for _, text, ok, ng in results],
+                    columns=["候補日時", "参加", "不参加"]
+                )
+                st.dataframe(df.set_index("候補日時"))
+
+                # 詳細も表示するならこちら
+                details = db.get_vote_details(int(meeting_id))
+                st.subheader("投票詳細（誰が参加/不参加か）")
+                st.json(details)
+
+                st.subheader("確定候補の選択")
+                option_texts = df.index.tolist()
+                final_candidate = st.radio(
+                    "最終確定する日程を選択してください。",
+                    options=option_texts,
+                    index=None
+                )
+
+                if final_candidate:
+                    st.info(f"確定日程: **{final_candidate}**")
+
+                if st.button("この内容でSlackに確定を通知", type="primary"):
+                    try:
+                        slack_client.send_final_decision(
+                            f"📣 会議日程が決定しました：*{final_candidate}* です！",
+                            channel=channel_id
+                        )
+                        st.success("Slackに確定日程を通知しました！")
+                    except Exception as e:
+                        st.error(f"Slack通知でエラー: {e}")
+
+            else:
+                st.info("まだ投票結果がありません。")
+
         except Exception as e:
-            st.error(f"Slack通知でエラー: {e}")
+            st.error(f"❌ 投票状況の取得に失敗しました: {e}")
+    else:
+        st.info("会議IDを入力してください。")
