@@ -6,10 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Form
 from fastapi.responses import JSONResponse
 import json
-
 load_dotenv()
-
-app = FastAPI()
 
 # Slackメッセージ用ブロック生成
 def _blocks_for_options(options: List[Tuple[int, str]]):
@@ -28,14 +25,14 @@ def _blocks_for_options(options: List[Tuple[int, str]]):
                         "text": {"type": "plain_text", "text": "○ 参加"},
                         "style": "primary",
                         "action_id": f"vote|{oid}|yes",
-                        "value": f"{oid}"
+                        "value": f"{oid}:ok"
                     },
                     {
                         "type": "button",
                         "text": {"type": "plain_text", "text": "× 不可"},
                         "style": "danger",
                         "action_id": f"vote|{oid}|no",
-                        "value": f"{oid}"
+                        "value": f"{oid}:ng"
                     }
                 ]
             },
@@ -80,7 +77,13 @@ def send_final_decision(message: str, channel: Optional[str] = None):
         raise RuntimeError("Slack credentials not provided. Set SLACK_BOT_TOKEN or SLACK_INCOMING_WEBHOOK_URL.")
 
 # Slackのインタラクティブイベント受信
-@app.post("/slack/interactivity")
+from fastapi import APIRouter, Form
+from fastapi.responses import JSONResponse
+import json
+
+router = APIRouter()
+
+@router.post("/slack/interactivity")
 async def slack_interactivity(payload: str = Form(...)):
     print("📦 payload:", payload)
     try:
@@ -91,7 +94,6 @@ async def slack_interactivity(payload: str = Form(...)):
         print("❌ エラー発生:", e)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# テスト用起動（uvicornでは実行されない）
-if __name__ == "__main__":
-    options = [(1, "10月1日 10:00"), (2, "10月2日 14:00")]
-    send_candidates("候補日を選んでください", options)
+
+
+
