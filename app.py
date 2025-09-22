@@ -119,7 +119,16 @@ with tab2:
                 st.json(details)
 
                 st.subheader("確定候補の選択")
-                option_texts = df.index.tolist()
+                
+                df = pd.DataFrame(
+                    [(text, ok, ng) for _, text, ok, ng in results],
+                    columns=["候補日時", "参加", "不参加"]
+                )
+                
+                df.set_index("候補日時", inplace=True)  # インデックスを候補日時に変更
+
+                option_texts = df.index.tolist()  # これで候補日時のリストになる
+
                 final_candidate = st.radio(
                     "最終確定する日程を選択してください。",
                     options=option_texts,
