@@ -100,3 +100,8 @@ async def slack_webhook(request: Request):
 @app.get("/healthz")
 async def healthz():
     return PlainTextResponse("ok")
+
+from slack_client import router as slack_client_router
+app.include_router(slack_client_router)
+
+
