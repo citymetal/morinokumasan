@@ -1,3 +1,4 @@
+from slack_client import get_user_display_name
 import sqlite3
 import datetime as dt
 
@@ -137,29 +138,23 @@ def tally_votes(meeting_id: int) -> list:
 
 # ★新機能: 要件④を満たすための新しい関数
 def get_vote_details(meeting_id: int) -> dict:
-    """【詳細表示用】誰がどこに投票したかをすべて取得する"""
     conn = sqlite3.connect(DB_NAME)
-    # 結果を扱いやすいように、辞書(dict)で返す設定
-    conn.row_factory = sqlite3.Row 
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-
     options = list_options(meeting_id)
     details = {}
-
     for option_id, option_text in options:
         cursor.execute("""
-            SELECT user_name, status FROM votes
+            SELECT user_id, status FROM votes
             WHERE option_id = ?
         """, (option_id,))
         votes = cursor.fetchall()
         details[option_text] = {
-            'ok_users': [v['user_name'] for v in votes if v['status'] == 'ok'],
-            'ng_users': [v['user_name'] for v in votes if v['status'] == 'ng']
+            'ok_users': [get_user_display_name(v['user_id']) for v in votes if v['status'] == 'ok'],
+            'ng_users': [get_user_display_name(v['user_id']) for v in votes if v['status'] == 'ng']
         }
     conn.close()
     return details
-
-# --- 日程の決定 ---
 def set_final_selection(option_id: int, meeting_id: int):
     # ... (変更なし)
     pass
