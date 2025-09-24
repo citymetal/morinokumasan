@@ -8,6 +8,27 @@ from fastapi.responses import JSONResponse
 import json
 load_dotenv()
 
+
+from slack_sdk.errors import SlackApiError
+
+def get_user_display_name(user_id: str) -> str:
+    bot_token = os.getenv("SLACK_BOT_TOKEN", "")
+    if not bot_token:
+        return user_id
+
+    client = WebClient(token=bot_token)
+    try:
+        response = client.users_info(user=user_id)
+        if response["ok"]:
+            profile = response["user"]["profile"]
+            return profile.get("display_name") or profile.get("real_name") or user_id
+    except SlackApiError as e:
+        print(f"Slack API error: {e.response['error']}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+    return user_id
+
+
 # Slackメッセージ用ブロック生成
 def _blocks_for_options(options: List[Tuple[int, str]]):
     blocks = []
