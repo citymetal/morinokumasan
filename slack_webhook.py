@@ -10,7 +10,8 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
 
-import db  # ← db.py をそのまま利用
+import db
+from slack_client import get_user_display_name  # ← db.py をそのまま利用
 
 load_dotenv()
 
@@ -72,7 +73,7 @@ async def slack_webhook(request: Request):
     user = payload.get("user", {}) or {}
     user_id = user.get("id")
     # payloadの仕様差異に備えて複数キーをフォールバック
-    user_name = user.get("username") or user.get("name") or user_id
+    user_name = get_user_display_name(user_id)
     if not user_id:
         raise HTTPException(status_code=400, detail="Invalid payload: no user")
 
@@ -103,4 +104,5 @@ async def healthz():
 
 from slack_client import router as slack_client_router
 app.include_router(slack_client_router)
+
 
